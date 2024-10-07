@@ -1,0 +1,7 @@
+bamboo-data/*
+bamboo-db-data/*
+bamboo-agent-data/*
+
+!bamboo-data/.gitkeep
+!bamboo-db-data/.gitkeep
+!bamboo-agent-data/.gitkeep

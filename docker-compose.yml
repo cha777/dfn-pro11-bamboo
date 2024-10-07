@@ -1,0 +1,72 @@
+services:
+  bamboo-server:
+    image: atlassian/bamboo
+    container_name: bamboo-server
+    ports:
+      - '8085:8085'
+      - '54663:54663'
+    environment:
+      - ATL_BASE_URL=http://bamboo-server/agentServer/
+      - ATL_JDBC_URL=jdbc:postgresql://bamboo-db:5432/bamboo
+      - ATL_JDBC_USER=bamboo
+      - ATL_JDBC_PASSWORD=123
+      - ATL_DB_TYPE=postgresql
+      - ATL_BROKER_URI=tcp://0.0.0.0:54663?wireFormat.maxInactivityDuration=90000&amp;transport.soWriteTimeout=45000
+      - ATL_BROKER_CLIENT_URI=failover:(tcp://bamboo-server:54663?wireFormat.maxInactivityDuration=90000)?initialReconnectDelay=15000&amp;maxReconnectAttempts=10
+    volumes:
+      - ./bamboo-data:/var/atlassian/application-data/bamboo
+    depends_on:
+      # - bamboo-db
+      bamboo-db:
+        condition: service_healthy
+    networks:
+      - bamboo-network
+      - bamboo-internal
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -f http://localhost:8085 || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  bamboo-db:
+    image: postgres:alpine
+    container_name: bamboo-db
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_DB: bamboo
+      POSTGRES_USER: bamboo
+      POSTGRES_PASSWORD: 123
+    volumes:
+      - ./bamboo-db-data:/var/lib/postgresql/data
+    networks:
+      - bamboo-internal
+      - bamboo-network
+    healthcheck:
+      test: pg_isready -U $$POSTGRES_USER
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  bamboo-agent:
+    image: atlassian/bamboo-agent-base
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile.bamboo-agent
+    container_name: bamboo-agent
+    environment:
+      - BAMBOO_SERVER=http://bamboo-server:8085/agentServer/
+    depends_on:
+      - bamboo-server
+      # bamboo-server:
+      #   condition: service_healthy
+    volumes:
+      - ./bamboo-agent-data:/var/atlassian/application-data/bamboo-agent
+    networks:
+      - bamboo-network
+
+networks:
+  bamboo-network:
+    driver: bridge
+  bamboo-internal:
+    driver: bridge
